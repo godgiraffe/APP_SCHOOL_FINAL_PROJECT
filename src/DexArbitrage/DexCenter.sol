@@ -47,13 +47,16 @@ contract DexCenter is Utils {
         IERC20(tokenIn).transferFrom(msg.sender, address(this), tokenInAmount);
         // 2. dexCenter approve 給 dexRouterAddress, 允許 dexRouterAddress 使用 tokenInAmount 個 tokenIn
         IERC20(tokenIn).approve(dexRouterAddress, tokenInAmount);
-        // ### amountOut 設成 0, 不知道會不會有三明治攻擊問題(?) ###
+        // ### amountOutMin 設成 0, 不知道會不會有三明治攻擊問題(?) ###
         // function swapExactTokensForETH(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint
         // deadline)
         uint256[] memory amounts = IUniswapV2Router02(dexRouterAddress).swapExactTokensForETH(
             tokenInAmount, 0, sortTokens(tokenIn, WETH_ADDR), address(this), block.timestamp + 15
         );
         require(amounts[1] > 0, "swapToETH failed");
+        // 3. 把換到的 eth 轉給 user
+        (bool trannsferResult,) = msg.sender.call{ value: amounts[1] }(""); // 注意 external call 的風險
+        require(trannsferResult, "Transfer ETH failed.");
         return (amounts[1] > 0, amounts[1]);
     }
 
