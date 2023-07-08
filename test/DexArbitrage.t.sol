@@ -46,48 +46,70 @@ contract DexArbitrageTest is Test {
     // 測試每個 dex, 從 Erc-20 swap to eth
     function testErc20SwapToEth() public {
         uint256 initialBalance = 10_000 * 10 ** 6;
-        address token0 = USDC_ADDR;
+        address token0 = USDC_ADDR; // 這邊可以指定任意 ERC20
         IERC20 IERC20_token0 = IERC20(token0);
 
         vm.startPrank(bob);
         for (uint256 i = 1; i <= dexArbitrage.dexRouterCount(); i++) {
             deal(token0, bob, initialBalance);
             (bool clearEth,) = address(0).call{ value: bob.balance }("");
-            assertEq(clearEth, true);
-            assertEq(bob.balance, 0);
-            assertEq(IERC20_token0.balanceOf(bob), initialBalance);
+            assertEq(clearEth, true, "clear eth fail");
+            assertEq(bob.balance, 0, "ETH InitialBalance Error");
+            assertEq(IERC20_token0.balanceOf(bob), initialBalance, "ERC20 InitialBalance Error");
 
-            // 測試每個 dex, 從 Erc-20 swap to WETH
+            // 測試每個 dex, 從 ERC20 swap to WETH
             address dexRouterAddress = dexArbitrage.dexRouterAddress(i);
-            // router address != 0
-            assertEq(dexRouterAddress != address(0), true);
+            assertEq(dexRouterAddress != address(0), true, "router address == 0");
 
             // USDT 的話，要先 approve 給 0, 其它 ERC20 的話，就正常 approve
-            if (token0 == USDC_ADDR) IERC20_token0.approve(address(dexCenter), 0);
+            if (token0 == USDT_ADDR) IERC20_token0.approve(address(dexCenter), 0);
             IERC20_token0.approve(address(dexCenter), IERC20_token0.balanceOf(bob));
             (bool success, uint256 tokenOutAmount) =
                 dexCenter.swapToETH(token0, IERC20_token0.balanceOf(bob), dexRouterAddress);
 
-            // swap success
-            assertEq(success, true);
-            // after swap, tokenOut Amount > 0
-            assertGt(tokenOutAmount, 0);
-            // after swap, user balance > 0
-            assertGt(bob.balance, 0);
+            assertEq(success, true, "Swap Fail");
+            assertGt(tokenOutAmount, 0, "after swap, tokenOut Amount < 0");
+            assertGt(bob.balance, 0, "after swap, user balance < 0");
         }
         vm.stopPrank();
     }
 
-    // 測試每個 dex, 從 eth    swap to Erc-20
-    function testEthSwapToErc20() public { }
+    // 測試每個 dex, 從 eth swap to ERC20
+    function testEthSwapToErc20() public {
+        uint256 initialBalance = 1 ether;
+        address token1 = USDC_ADDR; // 這邊可以指定任意 ERC20
+        IERC20 IERC20_token1 = IERC20(token1);
 
-    // 測試每個 dex, 從 Erc-20 swap to Erc-20
+        vm.startPrank(bob);
+        for (uint256 i = 1; i <= dexArbitrage.dexRouterCount(); i++) {
+            (bool clearEth,) = address(0).call{ value: bob.balance }("");
+            vm.deal(bob, initialBalance);
+            // 把 ERC20 送去 address(0) 會報錯, 所以就送給 alice 了
+            if (IERC20_token1.balanceOf(bob) > 0) IERC20_token1.transfer(alice, IERC20_token1.balanceOf(bob));
+            assertEq(bob.balance, initialBalance, "ETH InitialBalance Error");
+            assertEq(IERC20_token1.balanceOf(bob), 0, "ERC20 InitialBalance Error");
+
+            // 測試每個 dex, 從 ETH swap to ERC20
+            address dexRouterAddress = dexArbitrage.dexRouterAddress(i);
+            assertEq(dexRouterAddress != address(0), true, "router address == 0");
+
+            (bool success, uint256 tokenOutAmount) =
+                dexCenter.swapFromETH{ value: bob.balance }(token1, dexRouterAddress);
+
+            assertEq(success, true, "Swap Fail");
+            assertGt(tokenOutAmount, 0, "after swap, tokenOut Amount < 0");
+            assertGt(IERC20_token1.balanceOf(bob), 0, "after swap, user ERC20 balance < 0");
+            assertEq(tokenOutAmount, IERC20_token1.balanceOf(bob), "after swap, tokenOut Amount != user ERC20 balance");
+        }
+    }
+
+    // 測試每個 dex, 從 ERC20 swap to ERC20
     function testErc20SwapToErc20() public { }
 
-    // 測試套利行為, 隨機選 2 個 dex, 進行 erc20 → erc20 → erc20 的套利
+    // 測試套利行為, 隨機選 2 個 dex, 進行 ERC20 → ERC20 → ERC20 的套利
     function testArbitrageErc20() public { }
 
-    // 測試套利行為, 隨機選 2 個 dex, 進行 erc20 → eth → erc20 的套利
+    // 測試套利行為, 隨機選 2 個 dex, 進行 ERC20 → eth → ERC20 的套利
     function testArbitrageEth() public { }
 
     function testSwapEth() public {
