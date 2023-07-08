@@ -22,6 +22,13 @@ contract DexArbitrageTest is Test {
     address constant USDT_ADDR = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
     address constant USDC_ADDR = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
     address constant WETH_ADDR = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    address constant WBTC_ADDR = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
+    address constant UNI_ADDR = 0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984;
+    address constant LDO_ADDR = 0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32;
+    address constant APE_ADDR = 0x4d224452801ACEd8B2F0aebE155379bb5D594381;
+    address constant LINK_ADDR = 0x514910771AF9Ca656af840dff83E8264EcF986CA;
+    address constant WSTETH_ADDR = 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0;
+    address constant PEPE_ADDR = 0x6982508145454Ce325dDbE47a25d4ec3d2311933;
 
     string constant MAINNET_RPC_URL = "https://eth-mainnet.g.alchemy.com/v2/HVFSJbF2lktX-HJntcTStYyuJg1orfYg";
     uint256 mainnetForkId;
