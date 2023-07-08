@@ -7,7 +7,7 @@ import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { IUniswapV2Pair } from "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import { IUniswapV2Factory } from "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 
-import { Dex } from "./dex/Dex.sol";
+import { DexCenter } from "./DexCenter.sol";
 
 contract DexArbitrage {
     /**
@@ -25,18 +25,18 @@ contract DexArbitrage {
      */
 
     // dex
-    mapping(uint256 => address) public dexSwapAddress;
-    uint8 public dexSwapCount;
+    mapping(uint256 => address) public dexRouterAddress;
+    uint8 public dexRouterCount;
     address public constant UNISWAP_V2_ROUTER_ADDR = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
     address public constant SUSHISWAP_V1_ROUTER_ADDR = 0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F;
+    DexCenter public dexCenter;
 
     constructor() {
-        // 這邊可以再增加其它使用 uniswapv2 的 dex
-        Dex uniswapV2 = new Dex(UNISWAP_V2_ROUTER_ADDR);
-        Dex sushiswapV1 = new Dex(SUSHISWAP_V1_ROUTER_ADDR);
-        dexSwapAddress[1] = address(uniswapV2);
-        dexSwapAddress[2] = address(sushiswapV1);
-        dexSwapCount = 2;
+        dexCenter = new DexCenter();
+        // 這邊可以再增加其它使用 uniswapv2 的 dexRouterAddress
+        dexRouterAddress[1] = UNISWAP_V2_ROUTER_ADDR;
+        dexRouterAddress[2] = SUSHISWAP_V1_ROUTER_ADDR;
+        dexRouterCount = 2;
     }
 
     /**
@@ -66,20 +66,20 @@ contract DexArbitrage {
         require(buyingDexId > 0 && sellingDexId > 0, "DexArbitrage: buyingDex or sellingDex == 0");
         bool success = false;
         uint256 tokenOutAmount = 0;
-        Dex buyingDex = Dex(dexSwapAddress[buyingDexId]);
-        Dex sellingDex = Dex(dexSwapAddress[sellingDexId]);
+        address buyingDexRouter = dexRouterAddress[buyingDexId];
+        address sellingDexRouter = dexRouterAddress[sellingDexId];
 
         uint256 beforeSwapBuyTokenBalance = IERC20(buyToken).balanceOf(msg.sender);
         if (swapEth) {
-            (success, tokenOutAmount) = buyingDex.swapFromETH{ value: buyAmount }(buyToken);
-            (success, tokenOutAmount) = sellingDex.swapToETH(buyToken, buyAmount);
+            (success, tokenOutAmount) = dexCenter.swapFromETH{ value: buyAmount }(buyToken, buyingDexRouter);
+            (success, tokenOutAmount) = dexCenter.swapToETH(buyToken, buyAmount, sellingDexRouter);
         } else {
             // 1. 先到 buyingDex 花 buyAmount 個 buyToken 換成 sellToken
-            IERC20(buyToken).approve(address(buyingDex), buyAmount);
-            (success, tokenOutAmount) = Dex(buyingDex).swap(buyToken, buyAmount, sellToken);
+            IERC20(buyToken).approve(address(dexCenter), buyAmount); // 到時候會在前端做
+            (success, tokenOutAmount) = dexCenter.swap(buyToken, buyAmount, sellToken, buyingDexRouter);
             // 2. 再到 sellingDex 賣 buyAmount 個 sellToken
-            IERC20(sellToken).approve(address(sellingDex), buyAmount);
-            (success, tokenOutAmount) = sellingDex.swap(sellToken, buyAmount, buyToken);
+            IERC20(sellToken).approve(address(dexCenter), buyAmount); // 到時候會在前端做
+            (success, tokenOutAmount) = dexCenter.swap(sellToken, buyAmount, buyToken, sellingDexRouter);
         }
 
         // 3. 確認利潤是否有達到 minProfitAmount
