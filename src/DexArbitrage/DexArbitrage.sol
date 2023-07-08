@@ -65,21 +65,22 @@ contract DexArbitrage {
         require(buyAmount > 0, "DexArbitrage: buyAmount == 0");
         require(buyingDexId > 0 && sellingDexId > 0, "DexArbitrage: buyingDex or sellingDex == 0");
         bool success = false;
-        uint256 tokenOutAmount = 0;
+        uint256 buyTokenAmount = 0;
+        uint256 sellTokenAmount = 0;
         address buyingDexRouter = dexRouterAddress[buyingDexId];
         address sellingDexRouter = dexRouterAddress[sellingDexId];
 
         uint256 beforeSwapBuyTokenBalance = IERC20(buyToken).balanceOf(msg.sender);
         if (swapEth) {
-            (success, tokenOutAmount) = dexCenter.swapFromETH{ value: buyAmount }(buyToken, buyingDexRouter);
-            (success, tokenOutAmount) = dexCenter.swapToETH(buyToken, buyAmount, sellingDexRouter);
+            (success, sellTokenAmount) = dexCenter.swapFromETH{ value: buyAmount }(buyToken, buyingDexRouter);
+            (success, buyTokenAmount) = dexCenter.swapToETH(buyToken, sellTokenAmount, sellingDexRouter);
         } else {
             // 1. 先到 buyingDex 花 buyAmount 個 buyToken 換成 sellToken
             IERC20(buyToken).approve(address(dexCenter), buyAmount); // 到時候會在前端做
-            (success, tokenOutAmount) = dexCenter.swap(buyToken, buyAmount, sellToken, buyingDexRouter);
-            // 2. 再到 sellingDex 賣 buyAmount 個 sellToken
-            IERC20(sellToken).approve(address(dexCenter), buyAmount); // 到時候會在前端做
-            (success, tokenOutAmount) = dexCenter.swap(sellToken, buyAmount, buyToken, sellingDexRouter);
+            (success, sellTokenAmount) = dexCenter.swap(buyToken, buyAmount, sellToken, buyingDexRouter);
+            // 2. 再到 sellingDex 賣 tokenOutAmount 個 sellToken
+            IERC20(sellToken).approve(address(dexCenter), sellTokenAmount); // 到時候會在前端做
+            (success, buyTokenAmount) = dexCenter.swap(sellToken, sellTokenAmount, buyToken, sellingDexRouter);
         }
 
         // 3. 確認利潤是否有達到 minProfitAmount
