@@ -24,14 +24,19 @@ contract DexCenter is Utils {
         // 2. dexCenter approve 給 dexRouterAddress, 允許 dexRouterAddress 使用 tokenInAmount 個 tokenIn
         IERC20(tokenIn).approve(dexRouterAddress, tokenInAmount);
         // 3. 把 tokenInAmount 個 tokenIn 換成 tokenOut
+        address[] memory path = new address[](2);
+        path[0] = tokenIn;
+        path[1] = tokenOut;
         // 先來做 ERC20 token 換成各個 ERC20 token
         // ### amountOutMin 設成 0, 不知道會不會有三明治攻擊問題(?) ###
         // function swapExactTokensForTokens(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint
         // deadline) external returns (uint[] memory amounts);
         uint256[] memory amounts = IUniswapV2Router02(dexRouterAddress).swapExactTokensForTokens(
-            tokenInAmount, 0, sortTokens(tokenIn, tokenOut), address(this), block.timestamp + 15
+            tokenInAmount, 0, path, address(this), block.timestamp + 15
         );
         require(amounts[1] > 0, "swap failed");
+        (bool trannsferResult) = IERC20(tokenOut).transfer(msg.sender, amounts[1]);
+        require(trannsferResult, "Transfer ERC20 failed.");
         return (amounts[1] > 0, amounts[1]);
     }
 

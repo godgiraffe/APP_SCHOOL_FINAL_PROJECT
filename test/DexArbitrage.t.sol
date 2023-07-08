@@ -23,12 +23,12 @@ contract DexArbitrageTest is Test {
     address constant USDC_ADDR = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
     address constant WETH_ADDR = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     address constant WBTC_ADDR = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
+    address constant SHIB_ADDR = 0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE;
     address constant UNI_ADDR = 0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984;
     address constant LDO_ADDR = 0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32;
     address constant APE_ADDR = 0x4d224452801ACEd8B2F0aebE155379bb5D594381;
     address constant LINK_ADDR = 0x514910771AF9Ca656af840dff83E8264EcF986CA;
     address constant WSTETH_ADDR = 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0;
-    address constant PEPE_ADDR = 0x6982508145454Ce325dDbE47a25d4ec3d2311933;
 
     string constant MAINNET_RPC_URL = "https://eth-mainnet.g.alchemy.com/v2/HVFSJbF2lktX-HJntcTStYyuJg1orfYg";
     uint256 mainnetForkId;
@@ -111,7 +111,38 @@ contract DexArbitrageTest is Test {
     }
 
     // 測試每個 dex, 從 ERC20 swap to ERC20
-    function testErc20SwapToErc20() public { }
+    function testErc20SwapToErc20() public {
+        uint256 initialBalance = 1_000_000;
+        // toke0、token1 可以指定任意 ERC20 (但 v2 有池子)
+        address token0 = WETH_ADDR;
+        address token1 = LINK_ADDR;
+        IERC20 IERC20_token0 = IERC20(token0);
+        IERC20 IERC20_token1 = IERC20(token1);
+
+        vm.startPrank(bob);
+        for (uint256 i = 1; i <= dexArbitrage.dexRouterCount(); i++) {
+            deal(token0, bob, initialBalance);
+            // 把 ERC20 送去 address(0) 會報錯, 所以就送給 alice 了
+            if (IERC20_token1.balanceOf(bob) > 0) IERC20_token1.transfer(alice, IERC20_token1.balanceOf(bob));
+            assertEq(IERC20_token0.balanceOf(bob), initialBalance, "token0 InitialBalance Error");
+            assertEq(IERC20_token1.balanceOf(bob), 0, "token1 InitialBalance Error");
+
+            // 測試每個 dex, 從 ERC20 swap to ERC20
+            address dexRouterAddress = dexArbitrage.dexRouterAddress(i);
+            assertEq(dexRouterAddress != address(0), true, "router address == 0");
+
+            // USDT 的話，要先 approve 給 0, 其它 ERC20 的話，就正常 approve
+            if (token0 == USDT_ADDR) IERC20_token0.approve(address(dexCenter), 0);
+            IERC20_token0.approve(address(dexCenter), IERC20_token0.balanceOf(bob));
+            (bool success, uint256 tokenOutAmount) =
+                dexCenter.swap(token0, IERC20_token0.balanceOf(bob), token1, dexRouterAddress);
+
+            assertEq(success, true, "Swap Fail");
+            assertGt(tokenOutAmount, 0, "after swap, tokenOut Amount < 0");
+            assertGt(IERC20_token1.balanceOf(bob), 0, "after swap, user ERC20 balance < 0");
+            assertEq(tokenOutAmount, IERC20_token1.balanceOf(bob), "after swap, tokenOut Amount != user ERC20 balance");
+        }
+    }
 
     // 測試套利行為, 隨機選 2 個 dex, 進行 ERC20 → ERC20 → ERC20 的套利
     function testArbitrageErc20() public { }

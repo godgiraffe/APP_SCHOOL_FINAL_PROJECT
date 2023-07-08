@@ -29,6 +29,7 @@ contract DexArbitrage {
     uint8 public dexRouterCount;
     address public constant UNISWAP_V2_ROUTER_ADDR = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
     address public constant SUSHISWAP_V1_ROUTER_ADDR = 0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F;
+    address public constant SHIBASWAP_ROUTER_ADDR = 0x03f7724180AA6b939894B5Ca4314783B0b36b329;
     DexCenter public dexCenter;
 
     constructor() {
