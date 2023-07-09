@@ -12,6 +12,7 @@ import { DexCenter } from "../src/DexArbitrage/DexCenter.sol";
 
 contract DexArbitrageTest is Test {
     DexArbitrage public dexArbitrage;
+    address public dexArbitrageOwner;
     address public bob;
     address public alice;
     address public constant UNISWAP_V2_ROUTER_ADDR = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
@@ -33,13 +34,19 @@ contract DexArbitrageTest is Test {
     string constant MAINNET_RPC_URL = "https://eth-mainnet.g.alchemy.com/v2/HVFSJbF2lktX-HJntcTStYyuJg1orfYg";
     uint256 mainnetForkId;
 
+    // event
+    event AddDex(uint8 indexed dexRouterCount, address indexed dexRouterAddress);
+
     function setUp() public {
+        dexArbitrageOwner = makeAddr("dexArbitrageOwner");
         bob = makeAddr("bob");
         alice = makeAddr("alice");
         mainnetForkId = vm.createFork(MAINNET_RPC_URL);
         vm.selectFork(mainnetForkId);
+        vm.startPrank(dexArbitrageOwner);
         dexArbitrage = new DexArbitrage();
         dexCenter = dexArbitrage.dexCenter();
+        vm.stopPrank();
 
         vm.label(bob, "bob");
         vm.label(alice, "alice");
@@ -48,6 +55,30 @@ contract DexArbitrageTest is Test {
         vm.label(USDT_ADDR, "USDT");
         vm.label(USDC_ADDR, "USDC");
         vm.label(WETH_ADDR, "WETH");
+    }
+
+    function testAddDex() public {
+        vm.startPrank(bob);
+        // 測試只有 dexArbitrageOwner 可以新增 dex
+        vm.expectRevert("DexArbitrage: only owner");
+        dexArbitrage.addDex(UNISWAP_V2_ROUTER_ADDR);
+        vm.stopPrank();
+
+        vm.startPrank(dexArbitrageOwner);
+        // 測試不能新增重複的 dex
+        uint8 dexRouterCount = dexArbitrage.dexRouterCount();
+        address exitsDexRouterAddress = dexArbitrage.dexRouterAddress(dexRouterCount);
+        vm.expectRevert("DexArbitrage: Dex already exists");
+        dexArbitrage.addDex(exitsDexRouterAddress);
+
+        // 測試新增 dex 成功
+        address newRouterAddress = makeAddr("newRouterAddress");
+        bool dexRouterCountAddSuccess = true;
+        bool dexRouterAddressAddSuccess = true;
+        vm.expectEmit(false, dexRouterCountAddSuccess, dexRouterAddressAddSuccess, false);
+        emit AddDex(dexArbitrage.dexRouterCount(), newRouterAddress);
+        dexArbitrage.addDex(newRouterAddress);
+        vm.stopPrank();
     }
 
     // 測試每個 dex, 從 Erc-20 swap to eth

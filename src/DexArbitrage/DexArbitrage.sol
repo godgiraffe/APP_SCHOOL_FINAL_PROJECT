@@ -24,6 +24,9 @@ contract DexArbitrage {
      * 2. 各 dex 的 swap 功能
      */
 
+    // event
+    event AddDex(uint8 indexed dexRouterCount, address indexed dexRouterAddress);
+
     // contract
     address public owner;
 
@@ -58,10 +61,11 @@ contract DexArbitrage {
                 break;
             }
         }
-        require(isExist == false, "DexArbitrage: _dexRouterAddress is exist");
+        require(isExist == false, "DexArbitrage: Dex already exists");
 
         dexRouterCount++;
         dexRouterAddress[dexRouterCount] = _dexRouterAddress;
+        emit AddDex(dexRouterCount, _dexRouterAddress);
     }
 
     /**
