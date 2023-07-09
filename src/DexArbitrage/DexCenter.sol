@@ -5,7 +5,18 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IUniswapV2Router02 } from "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import { Utils } from "./Utils.sol";
 
+import "forge-std/Test.sol";
+
 contract DexCenter is Utils {
+    // event
+    event Swap(
+        address indexed tokenIn, uint256 tokenInAmount, address indexed tokenOut, address indexed dexRouterAddress
+    );
+    event SwapToETH(
+        address indexed tokenIn, uint256 tokenInAmount, uint256 ethOutAmount, address indexed dexRouterAddress
+    );
+    event SwapFromETH(address indexed tokenOut, uint256 ethInAmount, address indexed dexRouterAddress);
+
     address public constant WETH_ADDR = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
     constructor() { }
@@ -14,13 +25,15 @@ contract DexCenter is Utils {
         address tokenIn,
         uint256 tokenInAmount,
         address tokenOut,
-        address dexRouterAddress
+        address dexRouterAddress,
+        bytes memory data
     )
         external
         returns (bool success, uint256 tokenOutAmount)
     {
+        (bool transferToUser, address userAddress) = abi.decode(data, (bool, address));
         // 1. 先從 user transferFrom tokenInAmount 個 tokenIn, 給 dexCenter
-        IERC20(tokenIn).transferFrom(msg.sender, address(this), tokenInAmount);
+        if (transferToUser == false) IERC20(tokenIn).transferFrom(userAddress, address(this), tokenInAmount);
         // 2. dexCenter approve 給 dexRouterAddress, 允許 dexRouterAddress 使用 tokenInAmount 個 tokenIn
         IERC20(tokenIn).approve(dexRouterAddress, tokenInAmount);
         // 3. 把 tokenInAmount 個 tokenIn 換成 tokenOut
@@ -35,8 +48,11 @@ contract DexCenter is Utils {
             tokenInAmount, 0, path, address(this), block.timestamp + 15
         );
         require(amounts[1] > 0, "swap failed");
-        (bool trannsferResult) = IERC20(tokenOut).transfer(msg.sender, amounts[1]);
-        require(trannsferResult, "Transfer ERC20 failed.");
+        if (transferToUser == true) {
+            (bool trannsferResult) = IERC20(tokenOut).transfer(userAddress, amounts[1]);
+            require(trannsferResult, "Transfer ERC20 failed.");
+        }
+        emit Swap(tokenIn, tokenInAmount, tokenOut, dexRouterAddress);
         return (amounts[1] > 0, amounts[1]);
     }
 

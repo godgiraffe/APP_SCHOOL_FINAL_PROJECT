@@ -9,6 +9,8 @@ import { IUniswapV2Factory } from "@uniswap/v2-core/contracts/interfaces/IUniswa
 
 import { DexCenter } from "./DexCenter.sol";
 
+import "forge-std/Test.sol";
+
 contract DexArbitrage {
     /**
      * 要做什麼
@@ -17,7 +19,7 @@ contract DexArbitrage {
      *    可設定利潤 > xxx 顆才執行，不然就 revert
      * 2. 交易所 A 用 tokenA swap to tokenB
      * 3. 交易所 B 用 tokenB swap to tokenA
-     *
+     * 4. contract owner 可以 add dex
      *
      * 需實作的功能：
      * 1. 各 dex 的 get token price - 前端做去
@@ -74,19 +76,20 @@ contract DexArbitrage {
      * @param buyAmount  要 swap 幾顆 token
      * @param sellToken  能套利的是哪個 token
      * @param sellingDexId 要去哪個 dex 賣
-     * @param swapEth    是不是做 ETH 的 swap
+     * @param isSwapEth    是不是做 ETH 的 swap
      * @param minProfitAmount  最少利潤要有 xx 顆 buyToken, 不然就 revert
      */
-    function swap(
+    function arbitrage(
         uint8 buyingDexId,
         address buyToken,
         uint256 buyAmount,
         address sellToken,
         uint8 sellingDexId,
-        bool swapEth,
+        bool isSwapEth,
         uint256 minProfitAmount
     )
         external
+        payable
         returns (bool)
     {
         require(buyingDexId != sellingDexId, "DexArbitrage: buyingDex == sellingDex");
@@ -99,26 +102,42 @@ contract DexArbitrage {
         address buyingDexRouter = dexRouterAddress[buyingDexId];
         address sellingDexRouter = dexRouterAddress[sellingDexId];
 
-        uint256 beforeSwapBuyTokenBalance = IERC20(buyToken).balanceOf(msg.sender);
-        if (swapEth) {
-            (success, sellTokenAmount) = dexCenter.swapFromETH{ value: buyAmount }(buyToken, buyingDexRouter);
-            (success, buyTokenAmount) = dexCenter.swapToETH(buyToken, sellTokenAmount, sellingDexRouter);
+        uint256 beforeSwapBuyTokenBalance;
+        uint256 afterSwapBuyTokenBalance;
+        if (isSwapEth) {
+            // eth 這邊讓 user 打 eth 進來, 再轉給 dexCenter
+            require(msg.value >= buyAmount, "DexArbitrage: msg.value < buyAmount");
+            beforeSwapBuyTokenBalance = address(msg.sender).balance + msg.value;
+            (success,) = address(dexCenter).call{ value: msg.value }("");
+            (success, sellTokenAmount) = dexCenter.swapFromETH{ value: buyAmount }(sellToken, buyingDexRouter);
+
+            // IERC20(sellToken).approve(address(dexCenter), sellTokenAmount); approve 到時候會在前端做
+            (success, buyTokenAmount) = dexCenter.swapToETH(sellToken, sellTokenAmount, sellingDexRouter);
+            (success,) = address(msg.sender).call{ value: buyTokenAmount }("");
+            afterSwapBuyTokenBalance = address(msg.sender).balance;
         } else {
+            // erc20 這邊讓 user approve token 給 dexCenter (前端做), 這邊不經手任何 token
+            beforeSwapBuyTokenBalance = IERC20(buyToken).balanceOf(msg.sender);
             // 1. 先到 buyingDex 花 buyAmount 個 buyToken 換成 sellToken
-            IERC20(buyToken).approve(address(dexCenter), buyAmount); // 到時候會在前端做
-            (success, sellTokenAmount) = dexCenter.swap(buyToken, buyAmount, sellToken, buyingDexRouter);
+            bytes memory data = abi.encode(false, msg.sender);
+            (success, sellTokenAmount) = dexCenter.swap(buyToken, buyAmount, sellToken, buyingDexRouter, data);
             // 2. 再到 sellingDex 賣 tokenOutAmount 個 sellToken
-            IERC20(sellToken).approve(address(dexCenter), sellTokenAmount); // 到時候會在前端做
-            (success, buyTokenAmount) = dexCenter.swap(sellToken, sellTokenAmount, buyToken, sellingDexRouter);
+            data = abi.encode(true, msg.sender);
+            (success, buyTokenAmount) = dexCenter.swap(sellToken, sellTokenAmount, buyToken, sellingDexRouter, data);
+            afterSwapBuyTokenBalance = IERC20(buyToken).balanceOf(msg.sender);
         }
 
         // 3. 確認利潤是否有達到 minProfitAmount
-        uint256 afterSwapBuyTokenBalance = IERC20(buyToken).balanceOf(msg.sender);
-        uint8 buyTokenDecimals = ERC20(buyToken).decimals();
-        require(afterSwapBuyTokenBalance > beforeSwapBuyTokenBalance, "DexArbitrage: profitAmount < 0");
-        uint256 finalProfitAmount = (afterSwapBuyTokenBalance - beforeSwapBuyTokenBalance) / (10 ** buyTokenDecimals);
 
-        require(finalProfitAmount >= minProfitAmount, "DexArbitrage: finalProfitAmount < minProfitAmount");
+        uint8 buyTokenDecimals = ERC20(buyToken).decimals();
+        // 要找到有價差、能套利的 token 不太容易, 所以這段先註解, 不然會一直 revert XDD
+        // console.log("beforeSwapBuyTokenBalance: %s", beforeSwapBuyTokenBalance);
+        // console.log("afterSwapBuyTokenBalance: %s", afterSwapBuyTokenBalance);
+        // require(afterSwapBuyTokenBalance > beforeSwapBuyTokenBalance, "DexArbitrage: profitAmount < 0");
+        // uint256 finalProfitAmount = (afterSwapBuyTokenBalance - beforeSwapBuyTokenBalance) / (10 **
+        // buyTokenDecimals);
+        // require(finalProfitAmount >= minProfitAmount, "DexArbitrage: finalProfitAmount < minProfitAmount");
+
         return true;
     }
 

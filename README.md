@@ -2,25 +2,20 @@
 
 ## Description
 
-### DexArbitrage
-
-- 在不同 fork UniSwap 交易所之間的價差套利
+- 在多個 Dex(UniSwapV2Router) 間進行價差套利
 - 可設定如果利潤沒有 > 多少, 則 revert
-- 可使用閃電貸增加資金利用率
 - 使用 proxy contract, 未來可再升級
 - contract owner 可再添加 dex
-- (未來) 計算池子深度 & 滑點, 判斷最大套利空間
-- Ethereum
+- (未來) 計算池子深度 & 滑點, 判斷最大能用多少資金去套利
+- (未來) 可使用閃電貸增加資金利用率
+- 目前支援的 dex
   - UniSwap
   - Sushi Swap
-
-### ERC20Tool - 協另發行 ERC20 的工具
-
-- 能自行選擇要加入什麼功能，來發行自己的 ERC20
-- 為 proxy contract
 
 ## Framework
 
 ## Development
+
+## Testing
 
 ## Usage

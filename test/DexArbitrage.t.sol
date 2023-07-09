@@ -37,12 +37,23 @@ contract DexArbitrageTest is Test {
     // event
     event AddDex(uint8 indexed dexRouterCount, address indexed dexRouterAddress);
 
-    function setUp() public {
+    function setUp() public { }
+
+    function forkToNow() public {
+        mainnetForkId = vm.createFork(MAINNET_RPC_URL);
+        vm.selectFork(mainnetForkId);
+        setAddrAndDeploy();
+    }
+
+    function forkToBlockNumber(uint256 blockNumber) public {
+        vm.createSelectFork(MAINNET_RPC_URL, blockNumber);
+        setAddrAndDeploy();
+    }
+
+    function setAddrAndDeploy() public {
         dexArbitrageOwner = makeAddr("dexArbitrageOwner");
         bob = makeAddr("bob");
         alice = makeAddr("alice");
-        mainnetForkId = vm.createFork(MAINNET_RPC_URL);
-        vm.selectFork(mainnetForkId);
         vm.startPrank(dexArbitrageOwner);
         dexArbitrage = new DexArbitrage();
         dexCenter = dexArbitrage.dexCenter();
@@ -55,9 +66,11 @@ contract DexArbitrageTest is Test {
         vm.label(USDT_ADDR, "USDT");
         vm.label(USDC_ADDR, "USDC");
         vm.label(WETH_ADDR, "WETH");
+        vm.label(LINK_ADDR, "LINK");
     }
 
     function testAddDex() public {
+        forkToNow();
         vm.startPrank(bob);
         // 測試只有 dexArbitrageOwner 可以新增 dex
         vm.expectRevert("DexArbitrage: only owner");
@@ -83,6 +96,7 @@ contract DexArbitrageTest is Test {
 
     // 測試每個 dex, 從 Erc-20 swap to eth
     function testErc20SwapToEth() public {
+        forkToNow();
         uint256 initialBalance = 10_000 * 10 ** 6;
         address token0 = USDC_ADDR; // 這邊可以指定任意 ERC20
         IERC20 IERC20_token0 = IERC20(token0);
@@ -114,6 +128,7 @@ contract DexArbitrageTest is Test {
 
     // 測試每個 dex, 從 eth swap to ERC20
     function testEthSwapToErc20() public {
+        forkToNow();
         uint256 initialBalance = 1 ether;
         address token1 = USDC_ADDR; // 這邊可以指定任意 ERC20
         IERC20 IERC20_token1 = IERC20(token1);
@@ -143,6 +158,7 @@ contract DexArbitrageTest is Test {
 
     // 測試每個 dex, 從 ERC20 swap to ERC20
     function testErc20SwapToErc20() public {
+        forkToNow();
         uint256 initialBalance = 1_000_000;
         // toke0、token1 可以指定任意 ERC20 (但 v2 有池子)
         address token0 = WETH_ADDR;
@@ -165,8 +181,9 @@ contract DexArbitrageTest is Test {
             // USDT 的話，要先 approve 給 0, 其它 ERC20 的話，就正常 approve
             if (token0 == USDT_ADDR) IERC20_token0.approve(address(dexCenter), 0);
             IERC20_token0.approve(address(dexCenter), IERC20_token0.balanceOf(bob));
+            bytes memory data = abi.encode(true, bob);
             (bool success, uint256 tokenOutAmount) =
-                dexCenter.swap(token0, IERC20_token0.balanceOf(bob), token1, dexRouterAddress);
+                dexCenter.swap(token0, IERC20_token0.balanceOf(bob), token1, dexRouterAddress, data);
 
             assertEq(success, true, "Swap Fail");
             assertGt(tokenOutAmount, 0, "after swap, tokenOut Amount < 0");
@@ -176,12 +193,53 @@ contract DexArbitrageTest is Test {
     }
 
     // 測試套利行為, 隨機選 2 個 dex, 進行 ERC20 → ERC20 → ERC20 的套利
-    function testArbitrageErc20() public { }
+    function testArbitrageErc20() public {
+        // uint256 blockNumber = 15_207_858;
+        // forkToBlockNumber(blockNumber);
+        forkToNow();
+        address token0 = USDC_ADDR;
+        address token1 = WETH_ADDR;
+        uint8 hightPriceDexId;
+        uint8 lowPriceDexId;
+        uint256 hightPrice;
+        uint256 lowePrice;
+        uint256 initialBalance = 2000 * 10 ** 6;
+
+        // console.log("block number", block.number);
+        // 取得各 dex tokenA / tokenB 的價格, 取得高價/低價的 dexId
+        (hightPriceDexId, lowPriceDexId, hightPrice, lowePrice) = getDexPairInfo(token1, token0);
+
+        // console.log("lowPriceDexId", lowPriceDexId);
+        // console.log("hightPrice", hightPrice);
+        // console.log("hightPriceDexId", hightPriceDexId);
+        // console.log("lowePrice", lowePrice);
+
+        vm.startPrank(bob);
+        deal(token0, bob, initialBalance);
+        vm.deal(address(dexArbitrage), initialBalance); // 因為真的要花 gas = =, 所以要給他一點 eth
+        // 進行套利: 用 token0 去 lowPriceDex 買 token1, 再去 hightPriceDex 賣 token1 換回 token0, 這樣 token0 就會變多
+        /**
+         * function swap(uint8 buyingDexId, address buyToken, uint256 buyAmount, address sellToken, uint8 sellingDexId,
+         * bool isSwapEth, uint256 minProfitAmount)
+         */
+        IERC20(token0).approve(address(dexCenter), type(uint256).max);
+        (bool arbitrageResult) =
+            dexArbitrage.arbitrage(lowPriceDexId, token0, initialBalance, token1, hightPriceDexId, false, 0);
+        // (bool arbitrageResult) = dexArbitrage.swap{ value: initialBalance }(
+        //     lowPriceDexId, token0, initialBalance, token1, hightPriceDexId, true, 0
+        // );
+        assertEq(arbitrageResult, true, "arbitrageResult == false");
+        vm.stopPrank();
+    }
 
     // 測試套利行為, 隨機選 2 個 dex, 進行 ERC20 → eth → ERC20 的套利
     function testArbitrageEth() public { }
 
+    // 測試 arbitrage 的各個 revert
+    function testArbitrageRevert() public { }
+
     function testSwapEth() public {
+        forkToNow();
         // deal(USDC_ADDR, bob, 10_000 * 10 ** 6)
         uniswapRouter = IUniswapV2Router02(UNISWAP_V2_ROUTER_ADDR);
         console.log("bob balance", bob.balance);
@@ -232,10 +290,31 @@ contract DexArbitrageTest is Test {
         vm.stopPrank();
     }
 
-    function sortTokens(address tokenA, address tokenB) internal pure returns (address[] memory path) {
-        require(tokenA != tokenB, "UniswapV2Library: IDENTICAL_ADDRESSES");
-        path = new address[](2);
-        (path[0], path[1]) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
-        require(path[0] != address(0), "UniswapV2Library: ZERO_ADDRESS");
+    // 取得各 dex tokenA / tokenB 的價格, 取得高價/低價的 dexId
+    function getDexPairInfo(
+        address tokenA,
+        address tokenB
+    )
+        public
+        returns (uint8 hightPriceDexId, uint8 lowPriceDexId, uint256 hightPrice, uint256 lowePrice)
+    {
+        address[] memory path = new address[](2);
+        path[0] = tokenA;
+        path[1] = tokenB;
+        for (uint8 i = 1; i <= dexArbitrage.dexRouterCount(); i++) {
+            address dexRouterAddress = dexArbitrage.dexRouterAddress(i);
+            IUniswapV2Router02 dexRouter = IUniswapV2Router02(dexRouterAddress);
+            uint256[] memory amounts = dexRouter.getAmountsOut(1 ether, path);
+
+            if (amounts[1] > hightPrice) {
+                hightPrice = amounts[1];
+                hightPriceDexId = i;
+            }
+
+            if (amounts[1] < lowePrice || lowePrice == 0) {
+                lowePrice = amounts[1];
+                lowPriceDexId = i;
+            }
+        }
     }
 }
