@@ -106,7 +106,7 @@ contract DexArbitrageTest is Test {
             deal(token0, address(dexCenter), initialBalance);
             (bool clearEth,) = address(0).call{ value: address(dexCenter).balance }("");
             assertEq(clearEth, true, "clear eth fail");
-            assertEq(bob.balance, 0, "ETH InitialBalance Error");
+            assertEq(address(dexCenter).balance, 0, "ETH InitialBalance Error");
             assertEq(IERC20_token0.balanceOf(address(dexCenter)), initialBalance, "ERC20 InitialBalance Error");
 
             // 測試每個 dex, 從 ERC20 swap to WETH
@@ -115,6 +115,7 @@ contract DexArbitrageTest is Test {
                 dexCenter.swapToETH(token0, IERC20_token0.balanceOf(address(dexCenter)), dexRouterAddress);
             assertEq(success, true, "Swap Fail");
             assertGt(tokenOutAmount, 0, "after swap, tokenOut Amount < 0");
+            assertEq(address(dexCenter).balance, tokenOutAmount, "after swap, user tokenOut balance != tokenOutAmount");
         }
         vm.stopPrank();
     }
