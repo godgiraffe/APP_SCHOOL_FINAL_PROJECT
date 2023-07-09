@@ -126,27 +126,34 @@ contract DexArbitrageTest is Test {
         address token1 = USDC_ADDR; // 這邊可以指定任意 ERC20
         IERC20 IERC20_token1 = IERC20(token1);
 
-        vm.startPrank(bob);
+        vm.startPrank(address(dexCenter));
         for (uint256 i = 1; i <= dexArbitrage.dexRouterCount(); i++) {
-            (bool clearEth,) = address(0).call{ value: bob.balance }("");
-            vm.deal(bob, initialBalance);
+            (bool clearEth,) = address(0).call{ value: address(dexCenter).balance }("");
+            vm.deal(address(dexCenter), initialBalance);
             // 把 ERC20 送去 address(0) 會報錯, 所以就送給 alice 了
-            if (IERC20_token1.balanceOf(bob) > 0) IERC20_token1.transfer(alice, IERC20_token1.balanceOf(bob));
-            assertEq(bob.balance, initialBalance, "ETH InitialBalance Error");
-            assertEq(IERC20_token1.balanceOf(bob), 0, "ERC20 InitialBalance Error");
+            if (IERC20_token1.balanceOf(address(dexCenter)) > 0) {
+                IERC20_token1.transfer(alice, IERC20_token1.balanceOf(address(dexCenter)));
+            }
+            assertEq(address(dexCenter).balance, initialBalance, "ETH InitialBalance Error");
+            assertEq(IERC20_token1.balanceOf(address(dexCenter)), 0, "ERC20 InitialBalance Error");
 
             // 測試每個 dex, 從 ETH swap to ERC20
             address dexRouterAddress = dexArbitrage.dexRouterAddress(i);
             assertEq(dexRouterAddress != address(0), true, "router address == 0");
 
             (bool success, uint256 tokenOutAmount) =
-                dexCenter.swapFromETH{ value: bob.balance }(token1, dexRouterAddress);
+                dexCenter.swapFromETH{ value: address(dexCenter).balance }(token1, dexRouterAddress);
 
             assertEq(success, true, "Swap Fail");
             assertGt(tokenOutAmount, 0, "after swap, tokenOut Amount < 0");
-            assertGt(IERC20_token1.balanceOf(bob), 0, "after swap, user ERC20 balance < 0");
-            assertEq(tokenOutAmount, IERC20_token1.balanceOf(bob), "after swap, tokenOut Amount != user ERC20 balance");
+            assertGt(IERC20_token1.balanceOf(address(dexCenter)), 0, "after swap, dexCenter ERC20 balance < 0");
+            assertEq(
+                tokenOutAmount,
+                IERC20_token1.balanceOf(address(dexCenter)),
+                "after swap, tokenOut Amount != dexCenter ERC20 balance"
+            );
         }
+        vm.stopPrank();
     }
 
     // 測試每個 dex, 從 ERC20 swap to ERC20
