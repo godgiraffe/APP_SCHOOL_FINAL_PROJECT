@@ -313,58 +313,6 @@ contract DexArbitrageTest is Test {
         vm.stopPrank();
     }
 
-    function testSwapEth() public {
-        forkToNow();
-        // deal(USDC_ADDR, bob, 10_000 * 10 ** 6)
-        uniswapRouter = IUniswapV2Router02(UNISWAP_V2_ROUTER_ADDR);
-        console.log("bob balance", bob.balance);
-        vm.deal(bob, 1 ether);
-        console.log("bob balance", bob.balance);
-
-        vm.startPrank(bob);
-        address token0 = WETH_ADDR;
-        address token1 = USDC_ADDR;
-        address[] memory path = new address[](2);
-        path[0] = address(token0);
-        path[1] = address(token1);
-
-        uniswapRouter.swapExactETHForTokens{ value: 1 ether }(0, path, bob, block.timestamp);
-        // function swapExactETHForTokens(uint amountOutMin, address[] calldata path, address to, uint deadline)
-        //     external
-        //     payable
-        //     returns (uint[] memory amounts);
-        console.log("=============== swap eth to usdc ===============");
-        console.log("bob balance", bob.balance);
-        console.log("bob usdc balance", IERC20(token1).balanceOf(bob)); // 1848_200463
-
-        path[0] = address(token1);
-        path[1] = address(token0);
-        console.log("value", IERC20(token1).balanceOf(bob));
-
-        console.log("OZZ");
-        IERC20(token1).approve(address(uniswapRouter), IERC20(token1).balanceOf(bob));
-        // IERC20(token1).transfer(address(uniswapRouter), IERC20(token1).balanceOf(bob));
-        // IERC20(token1).allowed(bob, address(uniswapRouter));
-        // IERC20(token1).transferFrom(bob, address(uniswapRouter), IERC20(token1).balanceOf(bob));
-        console.log("OOO");
-        // function swapExactTokensForETH(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint
-        // deadline)
-        uniswapRouter.swapExactTokensForETH(IERC20(token1).balanceOf(bob), 0, path, bob, block.timestamp);
-
-        console.log("=============== swap usdt to eth ===============");
-        console.log("bob balance", bob.balance); // 0_994009406498583661
-        console.log("bob usdc balance", IERC20(token1).balanceOf(bob));
-
-        // function swapExactTokensForETH(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint
-        // deadline)
-        // external
-        // override
-        // ensure(deadline)
-        // returns (uint[] memory amounts)
-
-        vm.stopPrank();
-    }
-
     // 取得各 dex tokenA / tokenB 的價格, 取得高價/低價的 dexId
     function getDexPairInfo(
         address tokenA,
