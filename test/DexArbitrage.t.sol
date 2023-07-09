@@ -94,7 +94,7 @@ contract DexArbitrageTest is Test {
         vm.stopPrank();
     }
 
-    // 測試每個 dex, 從 Erc-20 swap to eth
+    // 測試每個 dex, 從 ERC20 swap to eth
     function testErc20SwapToEth() public {
         forkToNow();
         uint256 initialBalance = 10_000 * 10 ** 6;
@@ -192,7 +192,7 @@ contract DexArbitrageTest is Test {
         }
     }
 
-    // 測試套利行為, 隨機選 2 個 dex, 進行 ERC20 → ERC20 → ERC20 的套利
+    // 測試套利行為, 選 2 個 dex, 進行 ERC20 → ERC20 → ERC20 的套利
     function testArbitrageErc20() public {
         // uint256 blockNumber = 15_207_858;
         // forkToBlockNumber(blockNumber);
@@ -232,7 +232,7 @@ contract DexArbitrageTest is Test {
         vm.stopPrank();
     }
 
-    // 測試套利行為, 隨機選 2 個 dex, 進行 eth → ERC20 → eth 的套利
+    // 測試套利行為, 選 2 個 dex, 進行 eth → ERC20 → eth 的套利
     function testArbitrageEth() public {
         forkToNow();
         address token0 = WETH_ADDR;
