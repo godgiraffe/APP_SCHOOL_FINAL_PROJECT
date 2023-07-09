@@ -236,7 +236,59 @@ contract DexArbitrageTest is Test {
     function testArbitrageEth() public { }
 
     // 測試 arbitrage 的各個 revert
-    function testArbitrageRevert() public { }
+    function testArbitrageRevert() public {
+        forkToNow();
+        address token0 = USDC_ADDR;
+        address token1 = WETH_ADDR;
+        uint8 hightPriceDexId;
+        uint8 lowPriceDexId;
+        uint256 buyAmount = 2000 * 10 ** 6;
+
+        hightPriceDexId = 1;
+        lowPriceDexId = 1;
+        vm.expectRevert("DexArbitrage: buyingDex is equal to sellingDex");
+        (bool arbitrageResult) =
+            dexArbitrage.arbitrage(lowPriceDexId, token0, buyAmount, token1, hightPriceDexId, false, 0);
+
+        hightPriceDexId = 1;
+        lowPriceDexId = 2;
+        token0 = WETH_ADDR;
+        token1 = WETH_ADDR;
+        vm.expectRevert("DexArbitrage: buyToken is equal to sellToken");
+        arbitrageResult = dexArbitrage.arbitrage(lowPriceDexId, token0, buyAmount, token1, hightPriceDexId, false, 0);
+
+        hightPriceDexId = 1;
+        lowPriceDexId = 2;
+        token0 = WETH_ADDR;
+        token1 = USDC_ADDR;
+        buyAmount = 0;
+        vm.expectRevert("DexArbitrage: buyAmount is zero");
+        arbitrageResult = dexArbitrage.arbitrage(lowPriceDexId, token0, buyAmount, token1, hightPriceDexId, false, 0);
+
+        hightPriceDexId = 0;
+        lowPriceDexId = 2;
+        buyAmount = 2000 * 10 ** 6;
+        vm.expectRevert("DexArbitrage: buyingDex or sellingDex is zero");
+        arbitrageResult = dexArbitrage.arbitrage(lowPriceDexId, token0, buyAmount, token1, hightPriceDexId, false, 0);
+
+        hightPriceDexId = 1;
+        lowPriceDexId = 0;
+        vm.expectRevert("DexArbitrage: buyingDex or sellingDex is zero");
+        arbitrageResult = dexArbitrage.arbitrage(lowPriceDexId, token0, buyAmount, token1, hightPriceDexId, false, 0);
+
+        token0 = USDC_ADDR;
+        token1 = WETH_ADDR;
+        hightPriceDexId = 1;
+        lowPriceDexId = 2;
+        buyAmount = 2000 * 10 ** 6;
+
+        vm.startPrank(bob);
+        deal(token0, bob, buyAmount);
+        vm.deal(address(dexArbitrage), buyAmount); // 因為真的要花 gas = =, 所以要給他一點 eth
+        vm.expectRevert("DexArbitrage: msg.value < buyAmount");
+        arbitrageResult = dexArbitrage.arbitrage(lowPriceDexId, token0, buyAmount, token1, hightPriceDexId, true, 0);
+        vm.stopPrank();
+    }
 
     function testSwapEth() public {
         forkToNow();

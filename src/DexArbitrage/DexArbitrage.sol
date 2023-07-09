@@ -92,10 +92,10 @@ contract DexArbitrage {
         payable
         returns (bool)
     {
-        require(buyingDexId != sellingDexId, "DexArbitrage: buyingDex == sellingDex");
-        require(buyToken != sellToken, "DexArbitrage: buyToken == sellToken");
-        require(buyAmount > 0, "DexArbitrage: buyAmount == 0");
-        require(buyingDexId > 0 && sellingDexId > 0, "DexArbitrage: buyingDex or sellingDex == 0");
+        require(buyingDexId != sellingDexId, "DexArbitrage: buyingDex is equal to sellingDex");
+        require(buyToken != sellToken, "DexArbitrage: buyToken is equal to sellToken");
+        require(buyAmount > 0, "DexArbitrage: buyAmount is zero");
+        require(buyingDexId > 0 && sellingDexId > 0, "DexArbitrage: buyingDex or sellingDex is zero");
         bool success = false;
         uint256 buyTokenAmount = 0;
         uint256 sellTokenAmount = 0;
