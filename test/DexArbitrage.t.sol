@@ -232,8 +232,31 @@ contract DexArbitrageTest is Test {
         vm.stopPrank();
     }
 
-    // 測試套利行為, 隨機選 2 個 dex, 進行 ERC20 → eth → ERC20 的套利
-    function testArbitrageEth() public { }
+    // 測試套利行為, 隨機選 2 個 dex, 進行 eth → ERC20 → eth 的套利
+    function testArbitrageEth() public {
+        forkToNow();
+        address token0 = WETH_ADDR;
+        address token1 = LINK_ADDR;
+        uint8 hightPriceDexId;
+        uint8 lowPriceDexId;
+        uint256 hightPrice;
+        uint256 lowePrice;
+        uint256 initialBalance = 1 * 10 ** 18;
+
+        // console.log("block number", block.number);
+        // 取得各 dex tokenA / tokenB 的價格, 取得高價/低價的 dexId
+        (hightPriceDexId, lowPriceDexId, hightPrice, lowePrice) = getDexPairInfo(token1, token0);
+
+        vm.startPrank(bob);
+        vm.deal(bob, initialBalance);
+        vm.deal(address(dexArbitrage), initialBalance); // 因為真的要花 gas = =, 所以要給 dexArbitrage 一點 eth
+        // 進行套利: 用 token0 去 lowPriceDex 買 token1, 再去 hightPriceDex 賣 token1 換回 token0, 這樣 token0 就會變多
+        (bool arbitrageResult) = dexArbitrage.arbitrage{ value: initialBalance }(
+            lowPriceDexId, token0, initialBalance, token1, hightPriceDexId, true, 0
+        );
+        assertEq(arbitrageResult, true, "arbitrageResult == false");
+        vm.stopPrank();
+    }
 
     // 測試 arbitrage 的各個 revert
     function testArbitrageRevert() public {
@@ -348,6 +371,7 @@ contract DexArbitrageTest is Test {
         address tokenB
     )
         public
+        view
         returns (uint8 hightPriceDexId, uint8 lowPriceDexId, uint256 hightPrice, uint256 lowePrice)
     {
         address[] memory path = new address[](2);

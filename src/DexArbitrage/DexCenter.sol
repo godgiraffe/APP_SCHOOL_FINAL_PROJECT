@@ -64,9 +64,7 @@ contract DexCenter is Utils {
         external
         returns (bool success, uint256 tokenOutAmount)
     {
-        // 1. 先從 user transferFrom tokenInAmount 個 tokenIn, 給 dexCenter
-        IERC20(tokenIn).transferFrom(msg.sender, address(this), tokenInAmount);
-        // 2. dexCenter approve 給 dexRouterAddress, 允許 dexRouterAddress 使用 tokenInAmount 個 tokenIn
+        // 1. dexCenter approve 給 dexRouterAddress, 允許 dexRouterAddress 使用 tokenInAmount 個 tokenIn
         IERC20(tokenIn).approve(dexRouterAddress, tokenInAmount);
         address[] memory path = new address[](2);
         path[0] = tokenIn;
@@ -78,7 +76,7 @@ contract DexCenter is Utils {
             tokenInAmount, 0, path, address(this), block.timestamp + 15
         );
         require(amounts[1] > 0, "swapToETH failed");
-        // 3. 把換到的 eth 轉給 user
+        // 2. 把換到的 eth 轉給 user
         (bool trannsferResult,) = msg.sender.call{ value: amounts[1] }(""); // 注意 external call 的風險
         require(trannsferResult, "Transfer ETH failed.");
         return (amounts[1] > 0, amounts[1]);
@@ -104,8 +102,6 @@ contract DexCenter is Utils {
             0, path, address(this), block.timestamp + 15
         );
         require(amounts[1] > 0, "swapFromETH failed");
-        (bool trannsferResult) = IERC20(tokenOut).transfer(msg.sender, amounts[1]);
-        require(trannsferResult, "Transfer ERC20 failed.");
         return (amounts[1] > 0, amounts[1]);
     }
 
