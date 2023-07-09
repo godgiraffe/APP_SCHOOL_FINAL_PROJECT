@@ -179,12 +179,11 @@ contract DexArbitrageTest is Test {
             address dexRouterAddress = dexArbitrage.dexRouterAddress(i);
             assertEq(dexRouterAddress != address(0), true, "router address == 0");
 
-            // USDT 的話，要先 approve 給 0, 其它 ERC20 的話，就正常 approve
-            if (token0 == USDT_ADDR) IERC20_token0.approve(address(dexCenter), 0);
-            IERC20_token0.approve(address(dexCenter), IERC20_token0.balanceOf(bob));
+            uint256 tokenInAmount = IERC20_token0.balanceOf(bob);
+            IERC20_token0.transfer(address(dexCenter), tokenInAmount);
             bytes memory data = abi.encode(true, bob);
             (bool success, uint256 tokenOutAmount) =
-                dexCenter.swap(token0, IERC20_token0.balanceOf(bob), token1, dexRouterAddress, data);
+                dexCenter.swap(token0, tokenInAmount, token1, dexRouterAddress, data);
 
             assertEq(success, true, "Swap Fail");
             assertGt(tokenOutAmount, 0, "after swap, tokenOut Amount < 0");
