@@ -24,6 +24,9 @@ contract DexArbitrage {
      * 2. 各 dex 的 swap 功能
      */
 
+    // contract
+    address public owner;
+
     // dex
     mapping(uint256 => address) public dexRouterAddress;
     uint8 public dexRouterCount;
@@ -33,11 +36,32 @@ contract DexArbitrage {
     DexCenter public dexCenter;
 
     constructor() {
+        owner = msg.sender;
         dexCenter = new DexCenter();
         // 這邊可以再增加其它使用 uniswapv2 的 dexRouterAddress
         dexRouterAddress[1] = UNISWAP_V2_ROUTER_ADDR;
         dexRouterAddress[2] = SUSHISWAP_V1_ROUTER_ADDR;
         dexRouterCount = 2;
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "DexArbitrage: only owner");
+        _;
+    }
+
+    function addDex(address _dexRouterAddress) external onlyOwner {
+        require(_dexRouterAddress != address(0), "DexArbitrage: _dexRouterAddress == 0");
+        bool isExist = false;
+        for (uint256 dexId = 1; dexId <= dexRouterCount; dexId++) {
+            if (_dexRouterAddress == dexRouterAddress[dexId]) {
+                isExist = true;
+                break;
+            }
+        }
+        require(isExist == false, "DexArbitrage: _dexRouterAddress is exist");
+
+        dexRouterCount++;
+        dexRouterAddress[dexRouterCount] = _dexRouterAddress;
     }
 
     /**
