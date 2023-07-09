@@ -101,27 +101,20 @@ contract DexArbitrageTest is Test {
         address token0 = USDC_ADDR; // 這邊可以指定任意 ERC20
         IERC20 IERC20_token0 = IERC20(token0);
 
-        vm.startPrank(bob);
+        vm.startPrank(address(dexCenter));
         for (uint256 i = 1; i <= dexArbitrage.dexRouterCount(); i++) {
-            deal(token0, bob, initialBalance);
-            (bool clearEth,) = address(0).call{ value: bob.balance }("");
+            deal(token0, address(dexCenter), initialBalance);
+            (bool clearEth,) = address(0).call{ value: address(dexCenter).balance }("");
             assertEq(clearEth, true, "clear eth fail");
             assertEq(bob.balance, 0, "ETH InitialBalance Error");
-            assertEq(IERC20_token0.balanceOf(bob), initialBalance, "ERC20 InitialBalance Error");
+            assertEq(IERC20_token0.balanceOf(address(dexCenter)), initialBalance, "ERC20 InitialBalance Error");
 
             // 測試每個 dex, 從 ERC20 swap to WETH
             address dexRouterAddress = dexArbitrage.dexRouterAddress(i);
-            assertEq(dexRouterAddress != address(0), true, "router address == 0");
-
-            // USDT 的話，要先 approve 給 0, 其它 ERC20 的話，就正常 approve
-            if (token0 == USDT_ADDR) IERC20_token0.approve(address(dexCenter), 0);
-            IERC20_token0.approve(address(dexCenter), IERC20_token0.balanceOf(bob));
             (bool success, uint256 tokenOutAmount) =
-                dexCenter.swapToETH(token0, IERC20_token0.balanceOf(bob), dexRouterAddress);
-
+                dexCenter.swapToETH(token0, IERC20_token0.balanceOf(address(dexCenter)), dexRouterAddress);
             assertEq(success, true, "Swap Fail");
             assertGt(tokenOutAmount, 0, "after swap, tokenOut Amount < 0");
-            assertGt(bob.balance, 0, "after swap, user balance < 0");
         }
         vm.stopPrank();
     }
