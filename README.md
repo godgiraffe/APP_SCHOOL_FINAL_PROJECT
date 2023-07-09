@@ -15,7 +15,7 @@
 
 ## Framework
 
-![](https://hackmd.io/_uploads/H1h0x_dKn.png)
+<img src="https://imgur.com/wdsB2fP.png" />
 
 User 可選擇使用 ETH 或 ERC20 token 發起套利：
 
